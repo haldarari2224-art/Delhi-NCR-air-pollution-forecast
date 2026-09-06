@@ -1,0 +1,20 @@
+**/node_modules/
+**/*node_modules*
+*- Copy*
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+env/
+venv/
+*.log
+.DS_Store
+dist.zip
+tools/
+*.db
+*.sqlite
+backend/ml/*.joblib
+start.bat
+share_online.bat
+run.py

@@ -1,0 +1,10 @@
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.git
+.gitignore
+my-project/node_modules
+my-project/src
+node_modules
+*.log
