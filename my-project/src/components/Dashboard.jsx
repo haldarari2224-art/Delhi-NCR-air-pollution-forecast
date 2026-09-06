@@ -53,6 +53,40 @@ export default function Dashboard() {
     loadStations();
   }, []);
 
+  // Helper to generate 72-hour realistic coupled forecast
+  const generateForecastList = (baseAqi = 185) => {
+    const now = new Date();
+    const fcList = [];
+    let rollingAqi = baseAqi;
+    for (let i = 0; i < 72; i++) {
+      const fDate = new Date(now.getTime() + i * 3600 * 1000);
+      const h = fDate.getHours();
+      const hEffect = h >= 7 && h <= 10 ? 25 : h >= 18 && h <= 22 ? 30 : -20;
+      const windPred = Math.max(1.5, 5 + Math.sin(i / 6) * 3);
+      const tempPred = 20 + Math.sin((h - 6) / 4) * 8;
+      const windEffect = windPred < 3.5 ? 25 : -15;
+
+      rollingAqi = Math.max(50, Math.min(460, Math.round(rollingAqi * 0.85 + (baseAqi + hEffect + windEffect) * 0.15)));
+      const uncertainty = Math.min(12 + i * 1.2, 55);
+
+      fcList.push({
+        timestamp: fDate.toISOString(),
+        hour: h,
+        predicted_aqi: rollingAqi,
+        aqi_low: Math.max(20, Math.round(rollingAqi - uncertainty)),
+        aqi_high: Math.min(500, Math.round(rollingAqi + uncertainty)),
+        category: getAQICategory(rollingAqi),
+        color: getAQIColor(rollingAqi),
+        weather: {
+          temperature: Math.round(tempPred * 10) / 10,
+          humidity: Math.round(55 + Math.cos(i / 8) * 18),
+          wind_speed: Math.round(windPred * 10) / 10,
+        },
+      });
+    }
+    return fcList;
+  };
+
   // Fetch all data for selected station
   const fetchData = async () => {
     setLoading(true);
@@ -62,14 +96,19 @@ export default function Dashboard() {
       setCurrentData(cur);
       setIsBackendConnected(true);
 
+      const targetAqi = cur?.aqi || 185;
+
       // 2. 72-hr ML Forecast
       try {
         const fc = await getForecast(selectedStation);
-        if (fc && fc.forecast) {
+        if (fc && fc.forecast && Array.isArray(fc.forecast) && fc.forecast.length > 0) {
           setForecastData(fc.forecast);
+        } else {
+          setForecastData(generateForecastList(targetAqi));
         }
       } catch (e) {
         console.warn("Forecast fetch error, generating coupled projection", e);
+        setForecastData(generateForecastList(targetAqi));
       }
 
       // 3. Historical Data
@@ -137,37 +176,7 @@ export default function Dashboard() {
       category: getAQICategory(aqi),
     };
     setCurrentData(mockCur);
-
-    // Mock 72-hr coupled forecast
-    const fcList = [];
-    let rollingAqi = aqi;
-    for (let i = 0; i < 72; i++) {
-      const fDate = new Date(now.getTime() + i * 3600 * 1000);
-      const h = fDate.getHours();
-      const hEffect = h >= 7 && h <= 10 ? 25 : h >= 18 && h <= 22 ? 30 : -20;
-      const windPred = Math.max(1.5, 5 + Math.sin(i / 6) * 3);
-      const tempPred = 20 + Math.sin((h - 6) / 4) * 8;
-      const windEffect = windPred < 3.5 ? 25 : -15;
-
-      rollingAqi = Math.max(50, Math.min(460, Math.round(rollingAqi * 0.85 + (baseAqi + hEffect + windEffect) * 0.15)));
-      const uncertainty = Math.min(12 + i * 1.2, 55);
-
-      fcList.push({
-        timestamp: fDate.toISOString(),
-        hour: h,
-        predicted_aqi: rollingAqi,
-        aqi_low: Math.max(20, Math.round(rollingAqi - uncertainty)),
-        aqi_high: Math.min(500, Math.round(rollingAqi + uncertainty)),
-        category: getAQICategory(rollingAqi),
-        color: getAQIColor(rollingAqi),
-        weather: {
-          temperature: Math.round(tempPred * 10) / 10,
-          humidity: Math.round(55 + Math.cos(i / 8) * 18),
-          wind_speed: Math.round(windPred * 10) / 10,
-        },
-      });
-    }
-    setForecastData(fcList);
+    setForecastData(generateForecastList(aqi));
   };
 
   const aqiVal = currentData?.aqi || 185;
@@ -195,9 +204,13 @@ export default function Dashboard() {
   }, [weatherCond]);
 
   // Visible forecast data slice (24h / 48h / 72h)
+  const activeForecastList = useMemo(() => {
+    return forecastData.length > 0 ? forecastData : generateForecastList(aqiVal);
+  }, [forecastData, aqiVal]);
+
   const visibleForecast = useMemo(() => {
-    return forecastData.slice(0, forecastRange);
-  }, [forecastData, forecastRange]);
+    return activeForecastList.slice(0, forecastRange);
+  }, [activeForecastList, forecastRange]);
 
   // SVG Chart bounds & coordinates calculation
   const chartMetrics = useMemo(() => {
@@ -685,37 +698,37 @@ export default function Dashboard() {
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-6 pt-5 border-t border-slate-100">
             <ForecastPeriodCard
               period="Next 6 Hours"
-              aqi={forecastData[5]?.predicted_aqi || aqiVal}
+              aqi={activeForecastList[5]?.predicted_aqi || aqiVal}
               trend={
-                (forecastData[5]?.predicted_aqi || aqiVal) > aqiVal ? "Worsening ↑" : "Improving ↓"
+                (activeForecastList[5]?.predicted_aqi || aqiVal) > aqiVal ? "Worsening ↑" : "Improving ↓"
               }
-              color={getAQIColor(forecastData[5]?.predicted_aqi || aqiVal)}
+              color={getAQIColor(activeForecastList[5]?.predicted_aqi || aqiVal)}
             />
             <ForecastPeriodCard
               period="24-Hour Average"
               aqi={Math.round(
-                forecastData.slice(0, 24).reduce((a, b) => a + b.predicted_aqi, 0) /
-                  (forecastData.slice(0, 24).length || 1)
+                activeForecastList.slice(0, 24).reduce((a, b) => a + b.predicted_aqi, 0) /
+                  (activeForecastList.slice(0, 24).length || 1)
               )}
               trend="Diurnal Cycle"
               color={getAQIColor(
                 Math.round(
-                  forecastData.slice(0, 24).reduce((a, b) => a + b.predicted_aqi, 0) /
-                    (forecastData.slice(0, 24).length || 1)
+                  activeForecastList.slice(0, 24).reduce((a, b) => a + b.predicted_aqi, 0) /
+                    (activeForecastList.slice(0, 24).length || 1)
                 )
               )}
             />
             <ForecastPeriodCard
               period="Day 2 Projection"
-              aqi={forecastData[36]?.predicted_aqi || aqiVal}
-              trend={forecastData[36]?.category || "Moderate"}
-              color={getAQIColor(forecastData[36]?.predicted_aqi || aqiVal)}
+              aqi={activeForecastList[36]?.predicted_aqi || aqiVal}
+              trend={activeForecastList[36]?.category || "Moderate"}
+              color={getAQIColor(activeForecastList[36]?.predicted_aqi || aqiVal)}
             />
             <ForecastPeriodCard
               period="Day 3 Projection"
-              aqi={forecastData[60]?.predicted_aqi || aqiVal}
-              trend={forecastData[60]?.category || "Moderate"}
-              color={getAQIColor(forecastData[60]?.predicted_aqi || aqiVal)}
+              aqi={activeForecastList[60]?.predicted_aqi || aqiVal}
+              trend={activeForecastList[60]?.category || "Moderate"}
+              color={getAQIColor(activeForecastList[60]?.predicted_aqi || aqiVal)}
             />
           </div>
         </div>

@@ -1,5 +1,7 @@
 # Delhi NCR Air Pollution & Weather Coupled Forecasting System
 
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/haldarari2224-art/Delhi-NCR-air-pollution-forecast)
+
 An end-to-end atmospheric intelligence platform designed for the Smart India Hackathon (SIH), coupling boundary-layer meteorology with machine learning to forecast 72-hour air pollution across 12 continuous ambient air monitoring stations in Delhi NCR.
 
 ---

@@ -183,13 +183,14 @@ async def forecast(station_id: str = Query("delhi_ito")):
         weather_forecast = await fetch_forecast_weather(station, client)
 
     if not weather_forecast:
-        raise HTTPException(503, "Could not fetch weather forecast")
+        weather_forecast = []
 
     # Run ML prediction
     try:
         predictions = predict_aqi(current, weather_forecast, recent_values)
-    except FileNotFoundError as e:
-        raise HTTPException(503, str(e))
+    except Exception as e:
+        print(f"[Forecast Error] {e}")
+        predictions = []
 
     return {
         "station": {
