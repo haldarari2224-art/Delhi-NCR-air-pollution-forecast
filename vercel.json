@@ -1,0 +1,23 @@
+{
+  "version": 2,
+  "buildCommand": "npm --prefix my-project install && npm --prefix my-project run build",
+  "outputDirectory": "my-project/dist",
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/index.py"
+    },
+    {
+      "source": "/docs",
+      "destination": "/api/index.py"
+    },
+    {
+      "source": "/openapi.json",
+      "destination": "/api/index.py"
+    },
+    {
+      "source": "/((?!api/|docs|openapi.json).*)",
+      "destination": "/index.html"
+    }
+  ]
+}

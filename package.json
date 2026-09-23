@@ -1,0 +1,8 @@
+{
+  "name": "delhi-ncr-air-pollution-forecast",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "npm --prefix my-project install && npm --prefix my-project run build"
+  }
+}

@@ -4,9 +4,10 @@
  */
 
 const API_BASE =
-  typeof window !== "undefined" && window.location.port === "5173"
+  (typeof import.meta !== "undefined" && import.meta.env && import.meta.env.VITE_API_URL) ||
+  (typeof window !== "undefined" && window.location.port === "5173"
     ? "http://localhost:8000"
-    : "";
+    : "");
 
 async function apiFetch(endpoint, params = {}) {
   const origin = typeof window !== "undefined" ? window.location.origin : "http://localhost:8000";

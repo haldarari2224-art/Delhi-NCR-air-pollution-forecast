@@ -46,25 +46,33 @@ async def scheduled_fetch():
         print(f"[Scheduler] [Error]: {e}")
 
 
+IS_VERCEL = bool(os.environ.get("VERCEL") or os.environ.get("VERCEL_ENV"))
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Startup/shutdown lifecycle."""
-    # Initial data fetch
-    print("[Startup] Starting up - fetching initial data...")
-    try:
-        await fetch_all_stations()
-        print("[Startup] [OK] Initial data loaded")
-    except Exception as e:
-        print(f"[Startup] [Warning] Initial fetch failed (will retry): {e}")
+    if not IS_VERCEL:
+        # Initial data fetch for persistent local/server environments
+        print("[Startup] Starting up - fetching initial data...")
+        try:
+            await fetch_all_stations()
+            print("[Startup] [OK] Initial data loaded")
+        except Exception as e:
+            print(f"[Startup] [Warning] Initial fetch failed (will retry): {e}")
 
-    # Schedule hourly refreshes
-    scheduler.add_job(scheduled_fetch, "interval", minutes=60)
-    scheduler.start()
+        # Schedule hourly refreshes
+        scheduler.add_job(scheduled_fetch, "interval", minutes=60)
+        scheduler.start()
 
     yield
 
     # Shutdown
-    scheduler.shutdown()
+    if not IS_VERCEL:
+        try:
+            scheduler.shutdown()
+        except Exception:
+            pass
 
 
 # ── FastAPI App ────────────────────────────────────────────────────────
@@ -75,11 +83,11 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS — allow frontend dev server
+# CORS — allow frontend from localhost, Vercel deployments, or custom domains
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000", "http://127.0.0.1:5173"],
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -142,6 +150,12 @@ async def current_aqi(station_id: str = Query("delhi_ito")):
 async def list_stations():
     """List all Delhi NCR stations with their latest AQI."""
     db_data = get_all_stations_latest()
+    if not db_data:
+        try:
+            await fetch_all_stations()
+            db_data = get_all_stations_latest()
+        except Exception as e:
+            print(f"[Stations] Fetch error: {e}")
 
     stations = []
     for s in STATIONS:
@@ -168,8 +182,16 @@ async def forecast(station_id: str = Query("delhi_ito")):
     if not station:
         raise HTTPException(404, f"Station '{station_id}' not found")
 
-    # Get current AQI
+    # Get current AQI (try DB first, fallback to live fetch)
     aqi_data = get_latest_aqi(station_id)
+    if not aqi_data:
+        import httpx
+        try:
+            async with httpx.AsyncClient() as client:
+                aqi_data = await fetch_air_quality(station, client)
+        except Exception as e:
+            print(f"[Forecast] Fallback fetch notice: {e}")
+
     current = aqi_data["aqi"] if aqi_data else 100  # fallback
 
     # Get recent AQI history for lag features

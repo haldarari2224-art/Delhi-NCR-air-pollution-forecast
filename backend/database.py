@@ -5,9 +5,21 @@ Stores historical data for chart rendering and model retraining.
 
 import sqlite3
 import os
+import shutil
 from datetime import datetime
 
-DB_PATH = os.path.join(os.path.dirname(__file__), "aqi_data.db")
+IS_VERCEL = bool(os.environ.get("VERCEL") or os.environ.get("VERCEL_ENV"))
+
+if IS_VERCEL:
+    DB_PATH = "/tmp/aqi_data.db"
+    SOURCE_DB = os.path.join(os.path.dirname(__file__), "aqi_data.db")
+    if os.path.exists(SOURCE_DB) and not os.path.exists(DB_PATH):
+        try:
+            shutil.copy2(SOURCE_DB, DB_PATH)
+        except Exception as e:
+            print(f"[DB] Notice: Could not copy seed database to /tmp: {e}")
+else:
+    DB_PATH = os.path.join(os.path.dirname(__file__), "aqi_data.db")
 
 
 def get_connection():
