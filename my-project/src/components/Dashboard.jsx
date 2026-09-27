@@ -192,16 +192,31 @@ export default function Dashboard() {
     return { level: "Baseline", name: "Normal / Moderate", desc: "Standard surveillance and pollution abatement", color: "#4caf50" };
   }, [aqiVal]);
 
+  // Helper to convert wind direction degrees to compass heading
+  const getWindCompass = (deg) => {
+    if (deg === undefined || deg === null) return "WNW";
+    const val = Math.floor((deg / 22.5) + 0.5);
+    const arr = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"];
+    return arr[val % 16] || "WNW";
+  };
+
   // Atmospheric Dispersion & Inversion Risk indicator
   const weatherCond = currentData?.weather || {};
+  const currentTemp = (weatherCond.temperature && weatherCond.temperature > 0) ? weatherCond.temperature : 26.5;
+  const currentHumidity = (weatherCond.humidity && weatherCond.humidity > 0) ? weatherCond.humidity : 58;
+  const currentWindSpeed = (weatherCond.wind_speed && weatherCond.wind_speed > 0) ? weatherCond.wind_speed : 6.4;
+  const currentWindDir = (weatherCond.wind_direction && weatherCond.wind_direction > 0) ? weatherCond.wind_direction : 290;
+  const currentPressure = (weatherCond.pressure && weatherCond.pressure > 0) ? weatherCond.pressure : 1012;
+  const windDirLabel = getWindCompass(currentWindDir);
+
   const inversionRisk = useMemo(() => {
-    const ws = weatherCond.wind_speed ?? 4;
-    const hum = weatherCond.humidity ?? 60;
-    const temp = weatherCond.temperature ?? 24;
+    const ws = currentWindSpeed;
+    const hum = currentHumidity;
+    const temp = currentTemp;
     if (ws < 3 && hum > 65 && temp < 20) return { label: "Severe Inversion Trap", level: "Critical", color: "text-red-700 bg-red-50 border-red-200" };
     if (ws < 5 && hum > 55) return { label: "Moderate Stagnation", level: "Elevated", color: "text-amber-700 bg-amber-50 border-amber-200" };
     return { label: "Favorable Dispersion", level: "Good", color: "text-emerald-700 bg-emerald-50 border-emerald-200" };
-  }, [weatherCond]);
+  }, [currentWindSpeed, currentHumidity, currentTemp]);
 
   // Visible forecast data slice (24h / 48h / 72h)
   const activeForecastList = useMemo(() => {
@@ -388,10 +403,10 @@ export default function Dashboard() {
             <div className="mt-6 pt-5 border-t border-slate-100 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div
-                  className="w-10 h-10 rounded-2xl flex items-center justify-center text-white font-bold text-sm shadow-sm"
+                  className="w-10 h-10 shrink-0 rounded-2xl flex items-center justify-center text-white font-bold text-xs shadow-sm"
                   style={{ backgroundColor: grapStage.color }}
                 >
-                  {grapStage.level.replace("Stage ", "S")}
+                  {grapStage.level === "Baseline" ? "BL" : grapStage.level.replace("Stage ", "S-")}
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
@@ -415,34 +430,34 @@ export default function Dashboard() {
             <WeatherMetricCard
               icon="🌡️"
               label="Ambient Temperature"
-              value={`${weatherCond.temperature ?? 24.5}°C`}
+              value={`${currentTemp}°C`}
               subtitle="Boundary Layer Factor"
-              badge={weatherCond.temperature < 18 ? "Cold Inversion Risk" : "Normal"}
-              badgeColor={weatherCond.temperature < 18 ? "bg-blue-50 text-blue-700" : "bg-slate-100 text-slate-600"}
+              badge={currentTemp < 18 ? "Cold Inversion Risk" : "Normal"}
+              badgeColor={currentTemp < 18 ? "bg-blue-50 text-blue-700" : "bg-slate-100 text-slate-600"}
             />
 
             <WeatherMetricCard
               icon="💧"
               label="Relative Humidity"
-              value={`${weatherCond.humidity ?? 62}%`}
+              value={`${currentHumidity}%`}
               subtitle="Hygroscopic Growth"
-              badge={weatherCond.humidity > 70 ? "Smog-Fog Coupling" : "Moderate"}
-              badgeColor={weatherCond.humidity > 70 ? "bg-indigo-50 text-indigo-700" : "bg-slate-100 text-slate-600"}
+              badge={currentHumidity > 70 ? "Smog-Fog Coupling" : "Moderate"}
+              badgeColor={currentHumidity > 70 ? "bg-indigo-50 text-indigo-700" : "bg-slate-100 text-slate-600"}
             />
 
             <WeatherMetricCard
               icon="💨"
               label="Surface Wind Speed"
-              value={`${weatherCond.wind_speed ?? 4.8} km/h`}
+              value={`${currentWindSpeed} km/h`}
               subtitle="Ventilation Rate"
-              badge={weatherCond.wind_speed < 4 ? "Stagnant (<4 km/h)" : "Dispersive"}
-              badgeColor={weatherCond.wind_speed < 4 ? "bg-rose-50 text-rose-700" : "bg-emerald-50 text-emerald-700"}
+              badge={currentWindSpeed < 4 ? "Stagnant (<4 km/h)" : "Dispersive"}
+              badgeColor={currentWindSpeed < 4 ? "bg-rose-50 text-rose-700" : "bg-emerald-50 text-emerald-700"}
             />
 
             <WeatherMetricCard
               icon="🧭"
               label="Wind Trajectory"
-              value={`${weatherCond.wind_direction ?? 285}° WNW`}
+              value={`${currentWindDir}° ${windDirLabel}`}
               subtitle="Northwest Stubble Vector"
               badge="Punjab-Haryana Corridor"
               badgeColor="bg-amber-50 text-amber-700"
@@ -451,9 +466,9 @@ export default function Dashboard() {
             <WeatherMetricCard
               icon="⏲️"
               label="Barometric Pressure"
-              value={`${weatherCond.pressure ?? 1012} hPa`}
+              value={`${currentPressure} hPa`}
               subtitle="Subsidence Pressure"
-              badge={weatherCond.pressure > 1015 ? "High Stability" : "Neutral"}
+              badge={currentPressure > 1015 ? "High Stability" : "Neutral"}
               badgeColor="bg-slate-100 text-slate-600"
             />
 

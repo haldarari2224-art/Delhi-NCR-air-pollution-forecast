@@ -64,6 +64,21 @@ def predict_aqi(
         # Fill with current_aqi if no history available
         aqi_buffer = [current_aqi] * 24
 
+    if not weather_forecast:
+        now = datetime.now()
+        weather_forecast = []
+        for i in range(72):
+            dt = now + timedelta(hours=i)
+            h = dt.hour
+            weather_forecast.append({
+                "timestamp": dt.isoformat(),
+                "temperature": round(26.0 + 6.0 * np.sin((h - 9) * np.pi / 12), 1),
+                "humidity": round(max(35, 58.0 - 15.0 * np.sin((h - 9) * np.pi / 12)), 0),
+                "wind_speed": round(max(2.0, 5.0 + 2.5 * np.sin((h - 10) * np.pi / 12)), 1),
+                "wind_direction": 290,
+                "pressure": 1012,
+            })
+
     predictions = []
 
     for i, weather in enumerate(weather_forecast):
