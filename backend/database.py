@@ -79,7 +79,7 @@ def insert_aqi_reading(station_id, station_name, lat, lon, timestamp,
     conn = get_connection()
     try:
         conn.execute(
-            """INSERT OR IGNORE INTO aqi_readings
+            """INSERT OR REPLACE INTO aqi_readings
                (station_id, station_name, latitude, longitude, timestamp,
                 aqi, pm25, pm10, no2, so2, o3, co)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
@@ -98,7 +98,7 @@ def insert_weather_reading(station_id, timestamp, temperature, humidity,
     conn = get_connection()
     try:
         conn.execute(
-            """INSERT OR IGNORE INTO weather_readings
+            """INSERT OR REPLACE INTO weather_readings
                (station_id, timestamp, temperature, humidity,
                 wind_speed, wind_direction, pressure,
                 precipitation, cloud_cover)
